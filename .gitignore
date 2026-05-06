@@ -171,3 +171,7 @@ data/*.geojson
 models/saved/*.pkl
 backend/logs/
 !data/karnataka.geojson
+
+# General Database files
+*.db
+*.db-journal

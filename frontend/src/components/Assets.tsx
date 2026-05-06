@@ -1,11 +1,13 @@
 import React from "react";
 import { Sun, Wind, MapPin, Activity, X, AlertTriangle, CheckCircle, Info } from "lucide-react";
+import { LiveGraph } from "./LiveGraph";
 
 interface Asset {
   plant_id: string;
   name: string;
   plant_type: "solar" | "wind";
   capacity_mw: number;
+  dc_capacity_mw?: number;
   district: string;
   status: "green" | "yellow" | "red";
   operator: string;
@@ -21,6 +23,7 @@ const solarAssets: Asset[] = [
     name: "Shivanasamudra Solar Plant",
     plant_type: "solar",
     capacity_mw: 15,
+    dc_capacity_mw: 18,
     district: "Mandya",
     status: "green",
     operator: "KPCL (State Govt)",
@@ -33,6 +36,7 @@ const solarAssets: Asset[] = [
     name: "Yalesandra Solar PV Plant",
     plant_type: "solar",
     capacity_mw: 3,
+    dc_capacity_mw: 3.6,
     district: "Kolar",
     status: "green",
     operator: "KPCL (State Govt)",
@@ -45,6 +49,7 @@ const solarAssets: Asset[] = [
     name: "Itnal Solar PV Plant",
     plant_type: "solar",
     capacity_mw: 3,
+    dc_capacity_mw: 3.6,
     district: "Belagavi",
     status: "yellow",
     operator: "KPCL (State Govt)",
@@ -57,6 +62,7 @@ const solarAssets: Asset[] = [
     name: "Yapaldinni Solar PV Plant",
     plant_type: "solar",
     capacity_mw: 3,
+    dc_capacity_mw: 3.6,
     district: "Raichur",
     status: "green",
     operator: "KPCL (State Govt)",
@@ -69,6 +75,7 @@ const solarAssets: Asset[] = [
     name: "Pavagada Solar Park",
     plant_type: "solar",
     capacity_mw: 2050,
+    dc_capacity_mw: 2460,
     district: "Tumkur",
     status: "green",
     operator: "KSPDCL (Joint Govt Venture)",
@@ -104,8 +111,8 @@ const AssetCard = ({ asset, onClick }: { asset: Asset; onClick: () => void }) =>
   const accentColor = asset.plant_type === "solar" ? "hsl(var(--solar))" : "hsl(var(--wind))";
 
   return (
-    <div 
-      className="p-5 border border-border bg-card flex flex-col justify-between transition-all hover:bg-accent/5 cursor-pointer group" 
+    <div
+      className="p-5 border border-border bg-card flex flex-col justify-between transition-all hover:bg-accent/5 cursor-pointer group"
       style={{ boxShadow: "var(--shadow-soft)" }}
       onClick={onClick}
     >
@@ -121,7 +128,7 @@ const AssetCard = ({ asset, onClick }: { asset: Asset; onClick: () => void }) =>
         </div>
         <StatusLight status={asset.status} />
       </div>
-      
+
       <div className="flex items-baseline gap-1.5">
         <span className="font-serif text-3xl">{asset.capacity_mw}</span>
         <span className="font-mono text-[10px] text-muted-foreground uppercase tracking-[0.25em]">MW Cap</span>
@@ -161,6 +168,7 @@ const AssetModal = ({ asset, onClose }: { asset: Asset; onClose: () => void }) =
   };
 
   const health = getHealthInfo();
+  const [plantStats, setPlantStats] = React.useState({ peak: 0, avg: 0, totalEnergyMWh: 0 });
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-background/80 backdrop-blur-sm animate-in fade-in duration-300">
@@ -190,12 +198,31 @@ const AssetModal = ({ asset, onClose }: { asset: Asset; onClose: () => void }) =
               </p>
             </div>
 
-            <div className="flex-1 flex flex-col items-center justify-center text-center border border-dashed border-border p-8 bg-background/50">
-              <Activity className="w-12 h-12 text-muted-foreground/20 mx-auto mb-6" />
-              <h3 className="font-serif text-lg mb-3 text-muted-foreground">Generation Telemetry Unavailable</h3>
-              <p className="text-sm text-muted-foreground/70 leading-relaxed italic max-w-sm">
-                "Real-time plant-level data synchronization is currently in progress. Individual asset time-series telemetry will be populated once the localized node connection is established."
-              </p>
+            <div className="h-[400px] flex flex-col border border-dashed border-border p-4 bg-background/50 mb-6">
+              <LiveGraph 
+                plant_id={asset.plant_id} 
+                capacity_mw={asset.capacity_mw} 
+                plant_type={asset.plant_type}
+                onDataUpdate={setPlantStats}
+              />
+            </div>
+
+            <div className="grid grid-cols-3 gap-4">
+              <MetricBox 
+                label="Peak Generation" 
+                value={`${plantStats.peak.toFixed(2)} MW`} 
+                sub="Today's Max"
+              />
+              <MetricBox 
+                label="Avg Output" 
+                value={`${plantStats.avg.toFixed(2)} MW`} 
+                sub="Last 24h"
+              />
+              <MetricBox 
+                label="Energy generated till now" 
+                value={`${plantStats.totalEnergyMWh.toFixed(2)} MWh`} 
+                sub="Today's Total"
+              />
             </div>
           </div>
 
@@ -221,9 +248,9 @@ const AssetModal = ({ asset, onClose }: { asset: Asset; onClose: () => void }) =
                 {asset.year && <MetaRow label="Comm. Year" value={asset.year.toString()} />}
                 {asset.hardware && <MetaRow label="Hardware" value={asset.hardware} />}
                 {asset.coordinates && (
-                  <MetaRow 
-                    label="Coordinates" 
-                    value={`${asset.coordinates[0].toFixed(2)}°N, ${asset.coordinates[1].toFixed(2)}°E`} 
+                  <MetaRow
+                    label="Coordinates"
+                    value={`${asset.coordinates[0].toFixed(2)}°N, ${asset.coordinates[1].toFixed(2)}°E`}
                   />
                 )}
               </div>
@@ -242,6 +269,14 @@ const MetaRow = ({ label, value }: { label: string; value: string }) => (
   </div>
 );
 
+const MetricBox = ({ label, value, sub }: { label: string; value: string; sub: string }) => (
+  <div className="p-4 border border-border bg-background/30 rounded-sm">
+    <div className="font-mono text-[8px] tracking-widest text-muted-foreground uppercase mb-1">{label}</div>
+    <div className="font-serif text-xl mb-1">{value}</div>
+    <div className="font-mono text-[8px] text-muted-foreground/60 uppercase">{sub}</div>
+  </div>
+);
+
 
 export const Assets = () => {
   const [selectedAsset, setSelectedAsset] = React.useState<Asset | null>(null);
@@ -256,7 +291,7 @@ export const Assets = () => {
           <div className="font-mono text-[10px] tracking-[0.25em] text-muted-foreground uppercase mb-2">— Assets · Infrastructure</div>
           <h2 className="font-serif text-3xl lg:text-4xl">Grid generation nodes</h2>
         </div>
-        
+
         <div className="flex gap-8 border-l border-border pl-8 h-fit py-1">
           <div className="flex flex-col">
             <span className="font-mono text-[9px] tracking-widest text-muted-foreground uppercase mb-1">Total Solar</span>
@@ -301,4 +336,3 @@ export const Assets = () => {
     </section>
   );
 };
-
