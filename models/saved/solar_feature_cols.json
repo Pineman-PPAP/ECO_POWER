@@ -1,0 +1,1 @@
+["cos_sza", "ghi_wm2", "cloud_cover_pct", "temperature_c", "hour_sin", "hour_cos", "month_sin", "month_cos", "doy_sin", "doy_cos", "block_of_day", "is_weekend", "plf_lag_1", "plf_lag_4", "plf_lag_96", "plf_roll_mean_1h", "plf_roll_mean_3h", "plf_roll_mean_6h", "plf_roll_std_1h", "plf_roll_std_3h", "plf_roll_std_6h", "humidity_pct", "pressure_hpa", "plant_id"]

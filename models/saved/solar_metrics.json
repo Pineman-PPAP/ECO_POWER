@@ -1,0 +1,17 @@
+[
+  {
+    "plant_type": "solar",
+    "quantile": "p10",
+    "cv_rmse": 0.009736262576365772
+  },
+  {
+    "plant_type": "solar",
+    "quantile": "p50",
+    "cv_rmse": 0.003934131003459714
+  },
+  {
+    "plant_type": "solar",
+    "quantile": "p90",
+    "cv_rmse": 0.004829349438678157
+  }
+]

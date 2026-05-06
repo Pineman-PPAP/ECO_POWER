@@ -1,0 +1,17 @@
+[
+  {
+    "plant_type": "wind",
+    "quantile": "p10",
+    "cv_rmse": 0.01503377544479014
+  },
+  {
+    "plant_type": "wind",
+    "quantile": "p50",
+    "cv_rmse": 0.013786901266578347
+  },
+  {
+    "plant_type": "wind",
+    "quantile": "p90",
+    "cv_rmse": 0.4666390986307329
+  }
+]

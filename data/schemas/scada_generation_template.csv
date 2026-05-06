@@ -1,0 +1,7 @@
+timestamp,plant_id,plant_type,installed_capacity_mw,generation_mw,availability_flag,latitude,longitude,hub_height_m
+2024-01-01 00:00:00,SOLAR_01,solar,50.0,0.0,1,14.7504,77.2773,
+2024-01-01 00:15:00,SOLAR_01,solar,50.0,0.0,1,14.7504,77.2773,
+2024-01-01 06:00:00,SOLAR_01,solar,50.0,12.5,1,14.7504,77.2773,
+2024-01-01 12:00:00,SOLAR_01,solar,50.0,42.3,1,14.7504,77.2773,
+2024-01-01 00:00:00,WIND_01,wind,75.0,18.2,1,14.1234,75.9876,80.0
+2024-01-01 00:15:00,WIND_01,wind,75.0,19.0,1,14.1234,75.9876,80.0
