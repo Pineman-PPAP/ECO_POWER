@@ -288,8 +288,6 @@ const AssetModal = ({ asset, onClose }: { asset: Asset; onClose: () => void }) =
                 )}
               </div>
             </div>
-          </div>
-        </div>
       </div>
     </div>
   );
