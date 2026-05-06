@@ -22,7 +22,7 @@ from src.features.engineering import (
 
 logger = logging.getLogger(__name__)
 
-MODELS_DIR = Path(__file__).resolve().parents[2] / "models" / "saved"
+MODELS_DIR = Path(__file__).resolve().parents[3] / "models" / "saved"
 
 # Uncertainty band thresholds (as fraction of installed capacity)
 UNCERTAINTY_NARROW  = 0.05   # <5% → high confidence

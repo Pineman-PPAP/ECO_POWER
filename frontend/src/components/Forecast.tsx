@@ -75,6 +75,9 @@ const Legend = ({ color, label, dashed }: { color: string; label: string; dashed
 );
 
 const ForecastChart = ({ title, type, data }: { title: string; type: "combined" | "solar" | "wind", data: ForecastData[] }) => {
+  const [hoverIdx, setHoverIdx] = React.useState<number | null>(null);
+  const svgRef = React.useRef<SVGSVGElement>(null);
+
   const getValues = (d: any) => {
     if (type === "solar") return [d.solar, d.solarF];
     if (type === "wind") return [d.wind, d.windF];
@@ -86,6 +89,14 @@ const ForecastChart = ({ title, type, data }: { title: string; type: "combined" 
   const yMax = Math.max(...data.flatMap(d => getValues(d))) * 1.1;
   const xScale = (i: number) => PAD.l + (i / (data.length - 1)) * (W - PAD.l - PAD.r);
   const yScale = (v: number) => PAD.t + (1 - v / yMax) * (H - PAD.t - PAD.b);
+
+  const handleMouseMove = (e: React.MouseEvent) => {
+    if (!svgRef.current) return;
+    const rect = svgRef.current.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * W;
+    const i = Math.round(((x - PAD.l) / (W - PAD.l - PAD.r)) * (data.length - 1));
+    if (i >= 0 && i < data.length) setHoverIdx(i);
+  };
 
   const buildArea = (isActual: boolean) => {
     const points = data.map((d, i) => {
@@ -109,7 +120,7 @@ const ForecastChart = ({ title, type, data }: { title: string; type: "combined" 
   const accentColor = type === "solar" ? "solar" : type === "wind" ? "wind" : "primary";
 
   return (
-    <div className="border border-border bg-card p-6 lg:p-8" style={{ boxShadow: "var(--shadow-soft)" }}>
+    <div className="border border-border bg-card p-6 lg:p-8 relative group" style={{ boxShadow: "var(--shadow-soft)" }}>
       <div className="flex items-start justify-between mb-6">
         <div>
           <div className="font-mono text-[10px] tracking-[0.25em] text-muted-foreground uppercase mb-2">— Forecast · {type.toUpperCase()}</div>
@@ -121,7 +132,13 @@ const ForecastChart = ({ title, type, data }: { title: string; type: "combined" 
         </div>
       </div>
 
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto overflow-visible">
+      <svg 
+        ref={svgRef}
+        viewBox={`0 0 ${W} ${H}`} 
+        className="w-full h-auto overflow-visible cursor-crosshair"
+        onMouseMove={handleMouseMove}
+        onMouseLeave={() => setHoverIdx(null)}
+      >
         <defs>
           <linearGradient id={`grad-${type}`} x1="0" x2="0" y1="0" y2="1">
             <stop offset="0%" stopColor={`hsl(var(--${accentColor}))`} stopOpacity="0.2" />
@@ -160,6 +177,35 @@ const ForecastChart = ({ title, type, data }: { title: string; type: "combined" 
         <polygon points={buildArea(true)} fill={`url(#grad-${type})`} />
         <polyline points={buildLine(true)} fill="none" stroke={`hsl(var(--${accentColor}))`} strokeWidth="2" />
         <polyline points={buildLine(false)} fill="none" stroke="hsl(var(--emerald))" strokeWidth="1.5" strokeDasharray="4 4" />
+
+        {hoverIdx !== null && (
+          <g>
+            <line 
+              x1={xScale(hoverIdx)} x2={xScale(hoverIdx)} 
+              y1={PAD.t} y2={H - PAD.b} 
+              stroke="hsl(var(--primary))" strokeWidth="1" strokeDasharray="2 2" 
+            />
+            <circle cx={xScale(hoverIdx)} cy={yScale(getValues(data[hoverIdx])[0])} r="4" fill={`hsl(var(--${accentColor}))`} />
+            <circle cx={xScale(hoverIdx)} cy={yScale(getValues(data[hoverIdx])[1])} r="4" fill="hsl(var(--emerald))" />
+            
+            <foreignObject 
+              x={xScale(hoverIdx) + (hoverIdx > data.length / 2 ? -160 : 10)} 
+              y={PAD.t} width="150" height="80"
+            >
+              <div className="bg-background/95 backdrop-blur-sm border border-border p-3 shadow-xl rounded-sm">
+                <div className="font-mono text-[9px] text-muted-foreground mb-1">BLOCK {hoverIdx + 1}</div>
+                <div className="flex justify-between items-center mb-1">
+                  <span className="text-[10px] font-mono">Actual:</span>
+                  <span className={`text-xs font-bold text-${accentColor}`}>{getValues(data[hoverIdx])[0].toFixed(2)} MW</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-[10px] font-mono">Forecast:</span>
+                  <span className="text-xs font-bold text-emerald-500">{getValues(data[hoverIdx])[1].toFixed(2)} MW</span>
+                </div>
+              </div>
+            </foreignObject>
+          </g>
+        )}
       </svg>
     </div>
   );

@@ -27,7 +27,7 @@ NWP_OPTIONAL_COLS = [
     "wind_speed_ms", "wind_direction_deg", "pressure_hpa", "humidity_pct"
 ]
 
-DATA_DIR = Path(__file__).resolve().parents[2] / "data"
+DATA_DIR = Path(__file__).resolve().parents[3] / "data"
 RAW_DIR  = DATA_DIR / "raw"
 PROC_DIR = DATA_DIR / "processed"
 

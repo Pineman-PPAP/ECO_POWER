@@ -27,7 +27,7 @@ from src.features.engineering import (
 
 logger = logging.getLogger(__name__)
 
-MODELS_DIR = Path(__file__).resolve().parents[2] / "models" / "saved"
+MODELS_DIR = Path(__file__).resolve().parents[3] / "models" / "saved"
 MODELS_DIR.mkdir(parents=True, exist_ok=True)
 
 QUANTILES = [0.10, 0.50, 0.90]
@@ -397,5 +397,24 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Train Renewable Forecasting Models")
     parser.add_argument("--scada", type=str, default=None, help="Path to SCADA CSV")
     parser.add_argument("--nwp",   type=str, default=None, help="Path to NWP CSV")
+    parser.add_argument("--type",  type=str, default=None, help="Plant type to train (solar or wind). Defaults to both.")
     args = parser.parse_args()
-    run_training(args.scada, args.nwp)
+    
+    # Filter plant types based on argument
+    types = ["solar", "wind"]
+    if args.type:
+        types = [args.type.lower()]
+        
+    logging.basicConfig(level=logging.INFO)
+    from src.data.loader import load_all
+    from src.data.cleaner import clean
+    from src.features.engineering import build_features
+
+    df = load_all(args.scada, args.nwp)
+    training_df, _ = clean(df)
+    feature_df = build_features(training_df)
+
+    for plant_type in types:
+        models = train_plant_type(feature_df, plant_type)
+        if models:
+            save_models(models, plant_type)

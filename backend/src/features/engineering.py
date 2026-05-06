@@ -324,7 +324,9 @@ SOLAR_FEATURES = [
 WIND_FEATURES = [
     "wind_speed_hub_ms", "wind_speed_ms", "wind_u", "wind_v",
     "wind_dir_sin", "wind_dir_cos",
+    "wind_speed_120m", "wind_speed_80m",  # New requested heights
     "temperature_c", "pressure_hpa", "humidity_pct",
+    "latitude", "longitude", "hub_height_m", # New location/spec factors
     "hour_sin", "hour_cos", "month_sin", "month_cos", "doy_sin", "doy_cos",
     "block_of_day", "is_weekend",
     "plf_lag_1", "plf_lag_4", "plf_lag_96",
