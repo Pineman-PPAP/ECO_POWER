@@ -202,27 +202,60 @@ const AssetModal = ({ asset, onClose }: { asset: Asset; onClose: () => void }) =
               </div>
             </div>
 
-            <div className="flex-1 min-h-[300px] flex flex-col justify-center mb-8">
-               <AssetForecastChart asset={asset} />
-            </div>
+            {asset.plant_type === "solar" ? (
+              <>
+                <div className="h-[400px] flex flex-col border border-dashed border-border p-4 bg-background/50 mb-6">
+                  <LiveGraph 
+                    plant_id={asset.plant_id} 
+                    capacity_mw={asset.capacity_mw} 
+                    plant_type={asset.plant_type}
+                    onDataUpdate={setPlantStats}
+                  />
+                </div>
 
-            {/* Performance Cards - Matching Reference */}
-            <div className="grid grid-cols-3 gap-4">
-              <div className="bg-white border border-border p-4 shadow-sm">
-                <div className="text-[9px] font-mono text-muted-foreground uppercase mb-2">Peak Generation</div>
-                <div className="text-xl font-serif">{(asset.capacity_mw * 0.85).toFixed(2)} MW</div>
-                <div className="text-[9px] font-mono text-muted-foreground mt-1 uppercase">Today's Max</div>
-              </div>
-              <div className="bg-white border border-border p-4 shadow-sm">
-                <div className="text-[9px] font-mono text-muted-foreground uppercase mb-2">Avg Output</div>
-                <div className="text-xl font-serif">{(asset.capacity_mw * 0.42).toFixed(2)} MW</div>
-                <div className="text-[9px] font-mono text-muted-foreground mt-1 uppercase">Last 24h</div>
-              </div>
-              <div className="bg-white border border-border p-4 shadow-sm">
-                <div className="text-[9px] font-mono text-muted-foreground uppercase mb-2">Energy Generated</div>
-                <div className="text-xl font-serif">{(asset.capacity_mw * 4.8).toFixed(1)} MWh</div>
-                <div className="text-[9px] font-mono text-muted-foreground mt-1 uppercase">Today's Total</div>
-              </div>
+                <div className="grid grid-cols-3 gap-4">
+                  <MetricBox 
+                    label="Peak Generation" 
+                    value={`${plantStats.peak.toFixed(2)} MW`} 
+                    sub="Today's Max"
+                  />
+                  <MetricBox 
+                    label="Avg Output" 
+                    value={`${plantStats.avg.toFixed(2)} MW`} 
+                    sub="Last 24h"
+                  />
+                  <MetricBox 
+                    label="Energy generated till now" 
+                    value={`${plantStats.totalEnergyMWh.toFixed(2)} MWh`} 
+                    sub="Today's Total"
+                  />
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="flex-1 min-h-[300px] flex flex-col justify-center mb-8">
+                   <AssetForecastChart asset={asset} />
+                </div>
+
+                <div className="grid grid-cols-3 gap-4">
+                  <div className="bg-white border border-border p-4 shadow-sm">
+                    <div className="text-[9px] font-mono text-muted-foreground uppercase mb-2">Peak Generation</div>
+                    <div className="text-xl font-serif">{(asset.capacity_mw * 0.85).toFixed(2)} MW</div>
+                    <div className="text-[9px] font-mono text-muted-foreground mt-1 uppercase">Today's Max</div>
+                  </div>
+                  <div className="bg-white border border-border p-4 shadow-sm">
+                    <div className="text-[9px] font-mono text-muted-foreground uppercase mb-2">Avg Output</div>
+                    <div className="text-xl font-serif">{(asset.capacity_mw * 0.42).toFixed(2)} MW</div>
+                    <div className="text-[9px] font-mono text-muted-foreground mt-1 uppercase">Last 24h</div>
+                  </div>
+                  <div className="bg-white border border-border p-4 shadow-sm">
+                    <div className="text-[9px] font-mono text-muted-foreground uppercase mb-2">Energy Generated</div>
+                    <div className="text-xl font-serif">{(asset.capacity_mw * 4.8).toFixed(1)} MWh</div>
+                    <div className="text-[9px] font-mono text-muted-foreground mt-1 uppercase">Today's Total</div>
+                  </div>
+                </div>
+              </>
+            )}
             </div>
           </div>
 
