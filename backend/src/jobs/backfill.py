@@ -5,8 +5,8 @@ from sqlalchemy.orm import Session
 from src.data.database import SessionLocal, GenerationData
 from src.features.weather_fetcher import fetch_historical_weather
 from src.config.plants import get_plants
-from src.models.synthetic_actual import generate_solar_actual
-from src.models.predictor import predict_solar
+from src.models.synthetic_actual import generate_solar_actual, generate_wind_actual
+from src.models.predictor import predict_solar, predict_wind
 
 logger = logging.getLogger(__name__)
 
@@ -18,8 +18,12 @@ def interpolate_weather_to_15min(hourly_weather_dict: dict) -> dict:
     df.index = pd.to_datetime(df.index)
     df.sort_index(inplace=True)
     
+    # Ensure all columns are numeric
+    for col in df.columns:
+        df[col] = pd.to_numeric(df[col], errors='coerce')
+        
     # Resample to 15min and interpolate linearly
-    df_15min = df.resample('15min').interpolate(method='linear')
+    df_15min = df.resample('15min').interpolate(method='linear').ffill().bfill()
     
     # Format back to dict
     res_dict = {}
@@ -67,8 +71,12 @@ def run_backfill(db: Session = None):
             weather_15min = interpolate_weather_to_15min(hourly_weather)
             
             # Run Predictor & Synthetic Actual
-            predicted_records = predict_solar(weather_15min, plant)
-            actual_records = generate_solar_actual(weather_15min, plant)
+            if plant['type'] == 'solar':
+                predicted_records = predict_solar(weather_15min, plant)
+                actual_records = generate_solar_actual(weather_15min, plant)
+            else:
+                predicted_records = predict_wind(weather_15min, plant)
+                actual_records = generate_wind_actual(weather_15min, plant)
             
             # Combine into DB models
             db_records = []

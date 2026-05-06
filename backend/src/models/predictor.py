@@ -1,78 +1,110 @@
 import os
 import pandas as pd
 import numpy as np
-import lightgbm as lgb
-from src.models.physics import apply_solar_physics
+import joblib
+import logging
+from src.features.engineering import build_features, SOLAR_FEATURES, WIND_FEATURES
 
-# The file is in backend/src/models/predictor.py
-# We want to go up to backend/, and then up to ECO_POWER/
+logger = logging.getLogger(__name__)
+
+# Paths
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
-MODEL_PATH = os.path.join(BASE_DIR, 'solar_lightgbm.txt')
-BASE_MODEL_DC = 50.0  # MW, baseline the model was trained on
+MODELS_DIR = os.path.join(BASE_DIR, 'models', 'saved')
 
-_bst = None
-_model_features = None
+_models = {}
 
-def get_model():
-    global _bst, _model_features
-    if _bst is None:
-        _bst = lgb.Booster(model_file=MODEL_PATH)
-        _model_features = _bst.feature_name()
-    return _bst, _model_features
+def get_model(plant_type: str):
+    global _models
+    if plant_type not in _models:
+        model_name = f"{plant_type}_p50.pkl"
+        model_path = os.path.join(MODELS_DIR, model_name)
+        if os.path.exists(model_path):
+            logger.info(f"Loading {plant_type} model from {model_path}")
+            _models[plant_type] = joblib.load(model_path)
+        else:
+            logger.error(f"Model not found: {model_path}")
+            return None
+    return _models[plant_type]
 
-def predict_solar(weather_dict: dict, plant: dict) -> list:
+def predict_generation(weather_dict: dict, plant: dict) -> list:
     """
-    Predicts solar generation given a dictionary of raw open-meteo hourly data.
-    weather_dict format: {"2026-05-06T10:00": {"temperature_2m": ..., "shortwave_radiation": ...}, ...}
-    Returns a list of {"timestamp": dt, "predicted_kw": kw}
+    Unified prediction function for both solar and wind.
     """
     if not weather_dict:
         return []
 
-    # Map raw Open-Meteo to dataframe
+    plant_type = plant.get('type', 'solar')
+    model = get_model(plant_type)
+    if not model:
+        return []
+
+    # 1. Map raw Open-Meteo to dataframe
     records = []
     for ts_str, metrics in weather_dict.items():
         records.append({
-            'datetime': pd.to_datetime(ts_str).tz_localize('Asia/Kolkata') if pd.to_datetime(ts_str).tz is None else pd.to_datetime(ts_str),
-            'Temperature': metrics.get('temperature_2m', 0),
-            'Dew_Point': metrics.get('dewpoint_2m', 0),
-            'Relative_Humidity': metrics.get('relative_humidity_2m', 0),
-            'Pressure': metrics.get('surface_pressure', 0),
-            'TCC': metrics.get('cloud_cover', 0) / 100.0,
-            'Low_Cloud': metrics.get('cloud_cover_low', 0) / 100.0,
-            'Mid_Cloud': metrics.get('cloud_cover_mid', 0) / 100.0,
-            'High_Cloud': metrics.get('cloud_cover_high', 0) / 100.0,
-            'Wind_Speed': metrics.get('wind_speed_10m', 0),
-            'GHI': metrics.get('shortwave_radiation', 0),
-            'DNI': metrics.get('direct_normal_irradiance', 0) if 'direct_normal_irradiance' in metrics else metrics.get('shortwave_radiation', 0)*0.8,
-            'DHI': metrics.get('diffuse_radiation', 0) if 'diffuse_radiation' in metrics else metrics.get('shortwave_radiation', 0)*0.2,
-            'plant_id': plant['id']
+            'timestamp': pd.to_datetime(ts_str),
+            'temperature_c': metrics.get('temperature_2m', 25.0),
+            'humidity_pct': metrics.get('relative_humidity_2m', 50.0),
+            'pressure_hpa': metrics.get('surface_pressure', 1013.0),
+            'cloud_cover_pct': metrics.get('cloud_cover', 0.0),
+            'wind_speed_ms': metrics.get('wind_speed_10m', 0.0),
+            'wind_speed_80m': metrics.get('wind_speed_80m', metrics.get('wind_speed_10m', 0.0)),
+            'wind_speed_120m': metrics.get('wind_speed_120m', metrics.get('wind_speed_100m', metrics.get('wind_speed_10m', 0.0))),
+            'wind_direction_deg': metrics.get('wind_direction_10m', 0.0),
+            'ghi_wm2': metrics.get('shortwave_radiation', 0.0),
+            'plant_id': plant['id'],
+            'plant_type': plant_type,
+            'latitude': plant['latitude'],
+            'longitude': plant['longitude'],
+            'installed_capacity_mw': plant.get('ac_capacity_mw', plant.get('capacity_kw', 1000) / 1000.0),
+            'hub_height_m': plant.get('hub_height_m', 0.0),
+            'generation_mw': 0.0  # Placeholder for PLF calculation
         })
-    df = pd.DataFrame(records).set_index('datetime')
-    df.sort_index(inplace=True)
     
-    # Apply Physics Pipeline
-    bst, features = get_model()
-    df = apply_solar_physics(df, plant['latitude'], plant['longitude'], plant['tilt'], plant['azimuth'], model_features=features)
+    df = pd.DataFrame(records)
+    df.sort_values('timestamp', inplace=True)
+    
+    # 2. Build Features
+    # Note: build_features handles SZA, U/V decomposition, hub-height correction, etc.
+    df = build_features(df)
+    
+    # 3. Select Features based on plant type
+    features = SOLAR_FEATURES if plant_type == 'solar' else WIND_FEATURES
+    
+    # Ensure all features exist (handle lags if empty)
+    for col in features:
+        if col not in df.columns:
+            df[col] = 0.0
+            
+    # LightGBM scikit-learn wrapper is sensitive to column order and types.
+    # Use model.feature_name_ to ensure we pass exactly what it expects in the right order.
+    model_features = getattr(model, 'feature_name_', features)
+    
+    # Ensure all required features exist in df
+    for col in model_features:
+        if col not in df.columns:
+            df[col] = 0.0
+            
+    X = df[model_features].copy()
+    X = X.fillna(0.0) # Ensure no NaNs reach the model
+    
+    if 'plant_id' in X.columns:
+        X['plant_id'] = X['plant_id'].astype('category')
 
-    # Inference
-    raw_preds = bst.predict(df[features])
+    # 4. Inference (Predict PLF)
+    try:
+        plf_preds = model.predict(X)
+    except Exception as e:
+        logger.warning(f"Prediction failed with DataFrame, falling back to values: {e}")
+        plf_preds = model.predict(X.values)
     
-    # Apply Night Mask
-    raw_preds[df['SZA'] > 88] = 0.0 
-    
-    # PGML Scaling Logic
-    dc_cap_mw = plant['dc_capacity_mw']
-    ac_cap_mw = plant['ac_capacity_mw']
-    
-    scaled_dc_output = (raw_preds / BASE_MODEL_DC) * dc_cap_mw
-    
-    # Enforce AC Inverter Limit
-    live_predicted_mw = np.clip(scaled_dc_output, 0, ac_cap_mw)
+    # 5. Scale to MW and format output
+    ac_cap_mw = plant.get('ac_capacity_mw', plant.get('capacity_kw', 1000) / 1000.0)
+    live_predicted_mw = np.clip(plf_preds, 0, 1.0) * ac_cap_mw
     
     results = []
-    for i, ts in enumerate(df.index):
-        # Convert back to native python float, store in kW for consistency with DB schema
+    for i, ts in enumerate(df['timestamp']):
+        # Store in kW for consistency with DB schema
         kw_val = float(live_predicted_mw[i]) * 1000.0
         results.append({
             "timestamp": ts.to_pydatetime().replace(tzinfo=None),
@@ -80,3 +112,9 @@ def predict_solar(weather_dict: dict, plant: dict) -> list:
         })
         
     return results
+
+def predict_solar(weather_dict: dict, plant: dict) -> list:
+    return predict_generation(weather_dict, plant)
+
+def predict_wind(weather_dict: dict, plant: dict) -> list:
+    return predict_generation(weather_dict, plant)

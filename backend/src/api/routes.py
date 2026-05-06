@@ -20,6 +20,7 @@ def api_get_generation(
     end: Optional[str] = None, 
     db: Session = Depends(get_db)
 ):
+    print(f"FETCHING GENERATION: plant={plant_id} start={start} end={end}")
     plant = get_plant_by_id(plant_id)
     if not plant:
         raise HTTPException(status_code=404, detail="Plant not found")
@@ -28,19 +29,25 @@ def api_get_generation(
     
     if start:
         try:
-            start_dt = datetime.fromisoformat(start)
+            # Handle 'Z' suffix and other ISO variations
+            start_clean = start.replace('Z', '+00:00')
+            start_dt = datetime.fromisoformat(start_clean).replace(tzinfo=None)
             query = query.filter(GenerationData.timestamp >= start_dt)
-        except ValueError:
+        except ValueError as e:
+            print(f"Error parsing start date: {e}")
             pass
             
     if end:
         try:
-            end_dt = datetime.fromisoformat(end)
+            end_clean = end.replace('Z', '+00:00')
+            end_dt = datetime.fromisoformat(end_clean).replace(tzinfo=None)
             query = query.filter(GenerationData.timestamp <= end_dt)
-        except ValueError:
+        except ValueError as e:
+            print(f"Error parsing end date: {e}")
             pass
             
     records = query.order_by(GenerationData.timestamp.asc()).all()
+    print(f"RETURNED {len(records)} records for {plant_id}")
     
     return [
         {

@@ -9,8 +9,8 @@ from sqlalchemy import delete
 from src.data.database import SessionLocal, GenerationData
 from src.config.plants import get_plants
 from src.features.weather_fetcher import fetch_forecast_weather
-from src.models.synthetic_actual import generate_solar_actual
-from src.models.predictor import predict_solar
+from src.models.synthetic_actual import generate_solar_actual, generate_wind_actual
+from src.models.predictor import predict_solar, predict_wind
 from src.jobs.backfill import interpolate_weather_to_15min, run_backfill
 
 logger = logging.getLogger(__name__)
@@ -46,8 +46,13 @@ def run_15min_job():
             if not filtered_weather:
                 continue
 
-            predicted_records = predict_solar(filtered_weather, plant)
-            actual_records = generate_solar_actual(filtered_weather, plant)
+            if plant['type'] == 'solar':
+                predicted_records = predict_solar(filtered_weather, plant)
+                actual_records = generate_solar_actual(filtered_weather, plant)
+            else:
+                predicted_records = predict_wind(filtered_weather, plant)
+                actual_records = generate_wind_actual(filtered_weather, plant)
+                
             pred_dict = {p['timestamp']: p['predicted_kw'] for p in predicted_records}
             
             db_records = []

@@ -105,6 +105,102 @@ PLANTS = [
       "hardware": "Mixed (Thin-film & Multi-Crystalline, 15-degree tilt)",
       "irradiance_kwh_m2_day": "5.5 - 6.0"
     }
+  },
+  {
+    "id": "wind_tuppadahalli",
+    "name": "Tuppadahalli Wind Farm",
+    "type": "wind",
+    "latitude": 14.200,
+    "longitude": 76.433,
+    "capacity_kw": 56100,
+    "ac_capacity_mw": 56.1,
+    "hub_height_m": 80,
+    "district": "Chitradurga",
+    "status": "Active"
+  },
+  {
+    "id": "wind_bannur",
+    "name": "Bannur Wind Farm",
+    "type": "wind",
+    "latitude": 16.830,
+    "longitude": 75.720,
+    "capacity_kw": 78000,
+    "ac_capacity_mw": 78.0,
+    "hub_height_m": 120,
+    "district": "Vijayapura",
+    "status": "Active"
+  },
+  {
+    "id": "wind_jogmatti",
+    "name": "Jogmatti BSES Wind Farm",
+    "type": "wind",
+    "latitude": 14.108,
+    "longitude": 76.391,
+    "capacity_kw": 14000,
+    "ac_capacity_mw": 14.0,
+    "hub_height_m": 65,
+    "district": "Chitradurga",
+    "status": "Active"
+  },
+  {
+    "id": "wind_bijapur",
+    "name": "Bijapur Wind Farm",
+    "type": "wind",
+    "latitude": 16.750,
+    "longitude": 75.900,
+    "capacity_kw": 50000,
+    "ac_capacity_mw": 50.0,
+    "hub_height_m": 106,
+    "district": "Vijayapura",
+    "status": "Active"
+  },
+  {
+    "id": "wind_gadag",
+    "name": "Gadag Wind Farm",
+    "type": "wind",
+    "latitude": 15.420,
+    "longitude": 75.620,
+    "capacity_kw": 302400,
+    "ac_capacity_mw": 302.4,
+    "hub_height_m": 135,
+    "district": "Gadag",
+    "status": "Active"
+  },
+  {
+    "id": "wind_mangoli",
+    "name": "Energon Mangoli Wind Farm",
+    "type": "wind",
+    "latitude": 16.550,
+    "longitude": 76.200,
+    "capacity_kw": 46000,
+    "ac_capacity_mw": 46.0,
+    "hub_height_m": 100,
+    "district": "Vijayapura",
+    "status": "Active"
+  },
+  {
+    "id": "wind_tata_power",
+    "name": "Tata Power Wind Project",
+    "type": "wind",
+    "latitude": 15.350,
+    "longitude": 75.580,
+    "capacity_kw": 50400,
+    "ac_capacity_mw": 50.4,
+    "hub_height_m": 65,
+    "district": "Gadag",
+    "status": "Active"
+  },
+  {
+    "id": "wind_clp",
+    "name": "CLP Wind Farm",
+    "type": "wind",
+    "latitude": 16.140,
+    "longitude": 74.830,
+    "capacity_kw": 50000,
+    "ac_capacity_mw": 50.0,
+    "hub_height_m": 80,
+    "district": "Belagavi",
+    "status": "Active"
   }
 ]
 

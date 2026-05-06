@@ -318,7 +318,7 @@ SOLAR_FEATURES = [
     "plf_lag_1", "plf_lag_4", "plf_lag_96",
     "plf_roll_mean_1h", "plf_roll_mean_3h", "plf_roll_mean_6h",
     "plf_roll_std_1h",  "plf_roll_std_3h",  "plf_roll_std_6h",
-    "humidity_pct", "pressure_hpa",
+    "humidity_pct", "pressure_hpa", "plant_id"
 ]
 
 WIND_FEATURES = [
@@ -332,6 +332,7 @@ WIND_FEATURES = [
     "plf_lag_1", "plf_lag_4", "plf_lag_96",
     "plf_roll_mean_1h", "plf_roll_mean_3h", "plf_roll_mean_6h",
     "plf_roll_std_1h",  "plf_roll_std_3h",  "plf_roll_std_6h",
+    "plant_id"
 ]
 
 CATEGORICAL_FEATURES = ["plant_id"]

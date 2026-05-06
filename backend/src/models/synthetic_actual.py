@@ -98,3 +98,74 @@ def generate_solar_actual(weather_dict: dict, plant: dict, global_seed: int = 42
         })
         
     return actuals
+
+def generate_wind_actual(weather_dict: dict, plant: dict, global_seed: int = 42) -> list:
+    """
+    Simulates actual wind generation using a standard power curve logic.
+    """
+    if not weather_dict:
+        return []
+
+    df = pd.DataFrame.from_dict(weather_dict, orient='index')
+    df.index = pd.to_datetime(df.index)
+    if df.index.tz is None:
+        df.index = df.index.tz_localize('Asia/Kolkata')
+    else:
+        df.index = df.index.tz_convert('Asia/Kolkata')
+    df.sort_index(inplace=True)
+
+    # 1. Physics Parameters
+    ac_capacity_mw = plant.get('ac_capacity_mw', plant.get('capacity_kw', 1000) / 1000.0)
+    hub_height = plant.get('hub_height_m', 80.0)
+    
+    # Power Curve Parameters (Simplified IEC Class II)
+    cut_in = 3.0   # m/s
+    rated = 12.0   # m/s
+    cut_out = 25.0 # m/s
+    
+    # 2. Wind Speed Adjustment (Power Law)
+    # Open-Meteo gives 10m wind speed if we didn't fetch higher
+    v_ref = df.get('wind_speed_10m', 0)
+    alpha = 0.143 # Hellmann exponent
+    v_hub = v_ref * (hub_height / 10.0)**alpha
+    
+    # Use 80m/100m/120m if available
+    if 'wind_speed_80m' in df.columns and hub_height <= 90:
+        v_hub = df['wind_speed_80m']
+    elif 'wind_speed_100m' in df.columns and 90 < hub_height <= 110:
+        v_hub = df['wind_speed_100m']
+    elif 'wind_speed_120m' in df.columns and hub_height > 110:
+        v_hub = df['wind_speed_120m']
+
+    # 3. Power Curve Logic
+    def calculate_p_norm(v):
+        if v < cut_in or v > cut_out:
+            return 0.0
+        if v >= rated:
+            return 1.0
+        # Polynomial fit between cut-in and rated
+        return ((v - cut_in) / (rated - cut_in))**3
+
+    df['p_norm'] = v_hub.apply(calculate_p_norm)
+    
+    # 4. Add "Chaos"
+    plant_seed = global_seed + hash(plant['id']) % 10000
+    rng = np.random.default_rng(plant_seed)
+    
+    # Wind has more turbulence/variability
+    jitter = rng.normal(0.95, 0.05, len(df))
+    df['actual_kw'] = (df['p_norm'] * ac_capacity_mw * 1000.0) * jitter
+    
+    # Occasional downtime
+    downtime = rng.random(len(df)) < 0.005
+    df.loc[downtime, 'actual_kw'] = 0.0
+
+    # 5. Format result
+    actuals = []
+    for ts, row in df.iterrows():
+        actuals.append({
+            "timestamp": ts.to_pydatetime().replace(tzinfo=None),
+            "actual_kw": max(0, round(float(row['actual_kw']), 2))
+        })
+        
+    return actuals
