@@ -148,14 +148,26 @@ def explain_forecast_block(model,
             "direction":  row["direction"],
         })
 
-    # Narrative
-    top_feature = top5.iloc[0]["feature"] if len(top5) > 0 else "unknown"
-    direction   = top5.iloc[0]["direction"] if len(top5) > 0 else ""
-    narrative = (
-        f"The model predicts {pred_mw:.1f} MW "
-        f"(PLF {pred_plf:.2%}). "
-        f"The primary driver is '{top_feature}' which {direction.lower()} the forecast."
-    )
+    # Enhanced Narrative with Context
+    narrative = f"The model predicts {pred_mw:.1f} MW (PLF {pred_plf:.2%}). "
+    
+    if len(top5) > 0:
+        top_row = top5.iloc[0]
+        top_feature = top_row["feature"]
+        direction = top_row["direction"].lower()
+        
+        # Try to provide context (is the value high or low?)
+        # We'll compare against the mean in the provided feature_df
+        feat_mean = feature_df[top_feature].mean()
+        curr_val = float(top_row["value"])
+        
+        context = ""
+        if curr_val > feat_mean * 1.2:
+            context = f" (current value {curr_val:.1f} is high)"
+        elif curr_val < feat_mean * 0.8:
+            context = f" (current value {curr_val:.1f} is low)"
+            
+        narrative += f"The primary driver is '{top_feature}' which {direction}{context}."
 
     return {
         "plant_id":       plant_id,

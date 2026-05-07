@@ -196,6 +196,7 @@ const AssetModal = ({ asset, onClose }: { asset: Asset; onClose: () => void }) =
                 <MetaRow label="Operator" value={asset.operator} />
                 <MetaRow label="Capacity" value={`${asset.capacity_mw} MW`} />
                 <MetaRow label="District" value={asset.district} />
+                {asset.year && <MetaRow label="Comm. Year" value={asset.year.toString()} />}
                 {asset.hardware && <MetaRow label="Hardware" value={asset.hardware} />}
                 {asset.coordinates && (
                   <MetaRow

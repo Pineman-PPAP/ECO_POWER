@@ -28,9 +28,15 @@ import threading
 import sqlite3
 from datetime import datetime
 
+# Root paths
+BASE_DIR = Path(__file__).parent.parent.parent.parent
+DATA_DIR = BASE_DIR / "data"
+RAW_DATA_DIR = DATA_DIR / "raw"
+
 from src.data.loader import load_scada, load_nwp, merge_datasets
 from src.data.cleaner import clean
 from src.features.engineering import build_features, SOLAR_FEATURES, WIND_FEATURES
+from src.data.feeder import run_feeder
 
 # Protected ML imports to prevent system hangs
 ML_AVAILABLE = False
@@ -77,17 +83,41 @@ app.add_middleware(
 
 
 def _run_scheduler():
-    """Background thread to refresh SLDC data every 10 minutes."""
+    """Background thread to refresh SLDC data and reload features from CSV."""
     import time
-    from src.data.scraper import run_scrape
+    # This loop runs every minute to keep the 'Clock-Sync' feeder updated
     while True:
         try:
-            logger.info("Starting scheduled SLDC sync...")
-            run_scrape()
-            logger.info("Scheduled SLDC sync complete. Sleeping for 10 minutes.")
+            logger.info("Starting scheduled data sync (Clock-Sync Mode)...")
+            run_feeder()
+            
+            # Auto-reload the CSVs into memory for the model
+            logger.info("Reloading feature matrix from disk...")
+            _reload_data_internal()
+            
+            logger.info("Data sync and reload complete. Sleeping for 1 minute.")
+            time.sleep(60) 
         except Exception as e:
-            logger.error(f"Scheduled SLDC sync failed: {e}")
-        time.sleep(600)  # 10 minutes
+            logger.error(f"Scheduled sync failed: {e}")
+            time.sleep(10)
+
+def _reload_data_internal():
+    """Internal helper to reload CSVs and rebuild features without HTTP request."""
+    global _uploaded_scada, _uploaded_nwp
+    scada_path = RAW_DATA_DIR / "scada_generation.csv"
+    nwp_path = RAW_DATA_DIR / "nwp_weather.csv"
+    
+    if scada_path.exists():
+        df = pd.read_csv(scada_path)
+        df["timestamp"] = pd.to_datetime(df["timestamp"])
+        _uploaded_scada = df
+        
+    if nwp_path.exists():
+        df = pd.read_csv(nwp_path)
+        df["timestamp"] = pd.to_datetime(df["timestamp"])
+        _uploaded_nwp = df
+        
+    _rebuild_features()
 
 @app.on_event("startup")
 

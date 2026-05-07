@@ -34,3 +34,22 @@ A professional-grade renewable energy generation forecasting system designed for
 
 ## Documentation
 For a detailed technical deep-dive, see [renewable_forecast_solution.txt](docs/renewable_forecast_solution.txt).
+
+## CSV Data Feeder (Hackathon Mode)
+
+As we currently do not have direct API access from the hackathon organization for live grid telemetry, we have implemented a **CSV Data Feeder** for representation and testing purposes.
+
+### Why we use it:
+- **Simulation**: To demonstrate the real-time capabilities of the dashboard (Live Graphs, Asset Monitoring) without a live connection.
+- **Data Continuity**: It ensures the "Actual vs Predicted" visualizations are populated with realistic data patterns derived from historical SCADA records.
+- **Stability**: Provides a reliable data stream for frontend development and user experience testing.
+
+### Where it is used:
+- **`backend/src/data/feeder.py`**: The engine that reads historical CSVs (`scada_generation.csv`), shifts timestamps to current time, and performs spatial aggregation.
+- **`backend/src/api/main.py`**: A background scheduler triggers the feeder every 60 seconds to update the local `karnataka_solar.db`.
+- **Telemetry Endpoints**: Endpoints like `/sldc/status` and `/sldc/assets` serve this "faked" live data to the frontend.
+
+### Future Replacements:
+- **KPTCL SLDC API**: Once access is granted, `scraper.py` will replace the feeder to pull official state-wide generation data.
+- **SCADA IoT Integration**: Direct MQTT/HTTP streams from plant-level sensors will feed the `/ingest/scada` endpoint.
+- **Live Weather APIs**: NWP data will be fetched from professional services (e.g., Solcast, Meteoblue) instead of reading from static `nwp_weather.csv`.
