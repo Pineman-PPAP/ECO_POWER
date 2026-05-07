@@ -34,7 +34,7 @@ export const LiveGraph = ({
       const start = format(startOfDay(now), "yyyy-MM-dd'T'HH:mm:ss");
       const end = format(endOfDay(now), "yyyy-MM-dd'T'HH:mm:ss");
 
-      fetch(`http://localhost:8000/api/generation/${plant_id}?start=${start}&end=${end}`)
+      fetch(`/api/generation/${plant_id}?start=${start}&end=${end}`)
         .then((res) => {
           if (!res.ok) throw new Error("Not found");
           return res.json();

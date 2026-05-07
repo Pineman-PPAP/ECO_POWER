@@ -27,7 +27,7 @@ export const ScaledForecast = ({ plant_id, name, latitude, longitude, dc_capacit
     const fetchForecast = async () => {
       setLoading(true);
       try {
-        const response = await fetch("http://localhost:8000/api/live-prediction", {
+        const response = await fetch("/api/live-prediction", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({

@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: eco-power-dashboard
+    env: python
+    buildCommand: ./build.sh
+    startCommand: gunicorn main:app --chdir backend -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:$PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.0
+      - key: NODE_VERSION
+        value: 18.0.0
