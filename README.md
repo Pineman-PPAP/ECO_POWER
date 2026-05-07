@@ -51,7 +51,17 @@ Detailed scatterplots and regression analysis for our LightGBM models.
 
 ### Feature Importance (SHAP)
 The model prioritizes **GHI (Global Horizontal Irradiance)** and **SZA (Sun Zenith Angle)**, but also weighs **Cloud Cover** and **Rolling Efficiency** to handle weather volatility.
+---
 
+## 🕒 The Clock-Sync Simulation Engine
+To ensure a high-fidelity user experience even in the absence of live grid telemetry APIs, we engineered a custom **Clock-Sync Feeder** (`feeder.py`).
+
+- **Real-Time Handshake**: The engine synchronizes with the system clock and matches the current wall-clock time to historical high-resolution SCADA records.
+- **Dynamic Data Injection**: Every 60 seconds, it aggregates and injects state-wide generation metrics into our SQLite diagnostics layer.
+- **Live UI Response**: This allows the frontend to demonstrate real-time graph movements, asset status updates, and "Actual vs Predicted" analytics as if it were connected to a live SLDC stream.
+- **Future-Ready Architecture**: The data pipeline is designed as a "plug-and-play" interface. Once official API keys are provisioned, the feeder can be swapped for live MQTT or HTTP streams with zero changes to the visualization layer.
+
+---
 
 ## 🛠️ Tech Stack
 -   **Frontend**: React 18, Vite, Tailwind CSS, Recharts (Modern, High-Contrast UI).
