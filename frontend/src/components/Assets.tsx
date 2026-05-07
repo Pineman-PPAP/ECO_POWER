@@ -160,9 +160,9 @@ const AssetModal = ({ asset, onClose }: { asset: Asset; onClose: () => void }) =
           {/* Main Visualization Section */}
           <div className="flex-1 p-8 flex flex-col overflow-y-auto">
             <div className="flex-1 mb-8">
-              <LiveGraph 
-                plant_id={asset.plant_id} 
-                capacity_mw={asset.capacity_mw} 
+              <LiveGraph
+                plant_id={asset.plant_id}
+                capacity_mw={asset.capacity_mw}
                 plant_type={asset.plant_type}
                 onDataUpdate={setPlantStats}
               />
@@ -170,19 +170,19 @@ const AssetModal = ({ asset, onClose }: { asset: Asset; onClose: () => void }) =
 
             {/* Metrics Grid - Matches Image Aesthetic */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <MetricBox 
-                label="Peak Generation" 
-                value={`${plantStats.peak.toFixed(2)} MW`} 
+              <MetricBox
+                label="Peak Generation"
+                value={`${plantStats.peak.toFixed(2)} MW`}
                 sub="Today's Max"
               />
-              <MetricBox 
-                label="Avg Output" 
-                value={`${plantStats.avg.toFixed(2)} MW`} 
+              <MetricBox
+                label="Avg Output"
+                value={`${plantStats.avg.toFixed(2)} MW`}
                 sub="Last 24h"
               />
-              <MetricBox 
-                label="Energy Generated Till Now" 
-                value={`${plantStats.totalEnergyMWh.toFixed(2)} MWh`} 
+              <MetricBox
+                label="Energy Generated Till Now"
+                value={`${plantStats.totalEnergyMWh.toFixed(2)} MWh`}
                 sub="Today's Total"
               />
             </div>
@@ -190,47 +190,30 @@ const AssetModal = ({ asset, onClose }: { asset: Asset; onClose: () => void }) =
 
           {/* Technical Specs Sidebar */}
           <div className="w-full lg:w-80 border-l border-border p-8 bg-card flex flex-col space-y-8">
-             <div>
-               <h4 className="font-mono text-[10px] tracking-[0.3em] text-muted-foreground uppercase mb-6">— Specifications</h4>
-               <div className="space-y-5">
-                 <MetaRow label="Operator" value={asset.operator} />
-                 <MetaRow label="Capacity" value={`${asset.capacity_mw} MW`} />
-                 <MetaRow label="District" value={asset.district} />
-                 {asset.hardware && <MetaRow label="Hardware" value={asset.hardware} />}
-                 {asset.coordinates && (
-                   <MetaRow
-                     label="Location"
-                     value={`${asset.coordinates[0].toFixed(2)}°N, ${asset.coordinates[1].toFixed(2)}°E`}
-                   />
-                 )}
-               </div>
-             </div>
-
-<<<<<<< HEAD
-            <div className="space-y-6 pt-4 border-t border-border">
-              <h4 className="font-mono text-[10px] tracking-widest text-muted-foreground uppercase mb-2">Technical Specs</h4>
-              <div className="space-y-4">
+            <div>
+              <h4 className="font-mono text-[10px] tracking-[0.3em] text-muted-foreground uppercase mb-6">— Specifications</h4>
+              <div className="space-y-5">
                 <MetaRow label="Operator" value={asset.operator} />
-                {asset.year && <MetaRow label="Comm. Year" value={asset.year.toString()} />}
+                <MetaRow label="Capacity" value={`${asset.capacity_mw} MW`} />
+                <MetaRow label="District" value={asset.district} />
                 {asset.hardware && <MetaRow label="Hardware" value={asset.hardware} />}
                 {asset.coordinates && (
                   <MetaRow
-                    label="Coordinates"
+                    label="Location"
                     value={`${asset.coordinates[0].toFixed(2)}°N, ${asset.coordinates[1].toFixed(2)}°E`}
                   />
                 )}
               </div>
             </div>
-=======
-             <div className="pt-8 border-t border-border mt-auto">
-               <div className="flex items-center gap-3 p-4 bg-accent/5 border border-accent/10 rounded-sm">
-                 <div className={`w-2 h-2 rounded-full ${asset.status === 'green' ? 'bg-emerald-500' : 'bg-amber-500'}`} />
-                 <span className="font-mono text-[10px] tracking-widest uppercase">System Status: {asset.status === 'green' ? 'Optimal' : 'Checking'}</span>
-               </div>
-             </div>
+
+            <div className="pt-8 border-t border-border mt-auto">
+              <div className="flex items-center gap-3 p-4 bg-accent/5 border border-accent/10 rounded-sm">
+                <div className={`w-2 h-2 rounded-full ${asset.status === 'green' ? 'bg-emerald-500' : 'bg-amber-500'}`} />
+                <span className="font-mono text-[10px] tracking-widest uppercase">System Status: {asset.status === 'green' ? 'Optimal' : 'Checking'}</span>
+              </div>
+            </div>
           </div>
         </div>
->>>>>>> 950c0bd (feat: synchronize 24h forecast graphs and match dashboard aesthetics)
       </div>
     </div>
   );
