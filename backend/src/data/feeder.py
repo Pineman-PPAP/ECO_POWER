@@ -53,6 +53,14 @@ def run_feeder():
 
     try:
         df = pd.read_csv(source_file)
+        
+        # Mapping common aliases for hackathon data
+        column_mapping = {
+            'power_output_mw': 'generation_mw',
+            'capacity_mw': 'installed_capacity_mw'
+        }
+        df = df.rename(columns=column_mapping)
+        
         df['timestamp'] = pd.to_datetime(df['timestamp'])
         df['plant_type'] = df.get('plant_type', pd.Series(['solar']*len(df))).str.lower().str.strip()
         

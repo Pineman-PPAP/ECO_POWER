@@ -165,7 +165,6 @@ dist/
 .vite/
 
 # Local data
-data/*.csv
 data/*.db
 data/*.geojson
 models/saved/*.pkl
@@ -175,3 +174,7 @@ backend/logs/
 # General Database files
 *.db
 *.db-journal
+
+# Large Data Files
+data/raw/scada_generation_FULL.csv
+scratch/
