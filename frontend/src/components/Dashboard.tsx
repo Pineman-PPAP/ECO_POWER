@@ -16,7 +16,7 @@ export const Dashboard = () => {
   useEffect(() => {
     const fetchStatus = async () => {
       try {
-        const response = await fetch("http://localhost:8080/sldc/status");
+        const response = await fetch("/api/sldc/status");
         if (!response.ok) throw new Error("Backend unreachable");
         const data = await response.json();
         setStatus(data);
