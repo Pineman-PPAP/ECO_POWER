@@ -1,15 +1,14 @@
-// Forecast chart using mock data (Open-Meteo style 48h forecast)
+import { buildSyntheticGridSeries, predictionFactorForIndex } from "@/lib/syntheticData";
+
+// Forecast chart using realistic synthetic data
 const generate = () => {
-  return Array.from({ length: 48 }, (_, i) => {
+  const synthetic = buildSyntheticGridSeries(48);
+  return synthetic.map((entry, i) => {
     const hour = i;
-    // Solar curve: bell during day, 0 at night
-    const dayPos = ((hour % 24) - 12) / 6;
-    const solar = Math.max(0, Math.exp(-dayPos * dayPos) * 9.5 + (Math.random() - 0.5) * 0.4);
-    // Wind: more variable
-    const wind = 3 + Math.sin(hour / 3) * 2 + Math.cos(hour / 5) * 1.5 + Math.random() * 0.6;
-    // Forecast slight offset
-    const solarF = Math.max(0, solar + (Math.random() - 0.5) * 0.6);
-    const windF = Math.max(0, wind + (Math.random() - 0.5) * 0.5);
+    const solar = entry.solar_mw;
+    const wind = entry.wind_mw;
+    const solarF = Math.max(0, solar * predictionFactorForIndex(i));
+    const windF = Math.max(0, wind * predictionFactorForIndex(i + 3));
     return { hour, solar, wind, solarF, windF };
   });
 };
@@ -46,7 +45,7 @@ export const ForecastPanel = () => {
             <div className="flex items-center gap-4 text-[11px] font-mono">
               <Legend color="solar" label="SOLAR" />
               <Legend color="wind" label="WIND" />
-              <Legend color="emerald" label="FORECAST" dashed />
+              <Legend color="emerald" label="PREDICTED (12-18% ERROR BAND)" dashed />
             </div>
           </div>
 
@@ -105,8 +104,8 @@ export const ForecastPanel = () => {
             <polygon points={buildArea("wind")} fill="url(#windGrad)" />
             <polyline points={data.map((d, i) => `${xScale(i)},${yScale(d.solar)}`).join(" ")} fill="none" stroke="hsl(var(--solar))" strokeWidth="1.75" />
             <polyline points={data.map((d, i) => `${xScale(i)},${yScale(d.wind)}`).join(" ")} fill="none" stroke="hsl(var(--wind))" strokeWidth="1.75" />
-            <polyline points={buildLine("solarF")} fill="none" stroke="hsl(var(--emerald))" strokeWidth="1.25" strokeDasharray="3 3" />
-            <polyline points={buildLine("windF")} fill="none" stroke="hsl(var(--emerald))" strokeWidth="1.25" strokeDasharray="3 3" opacity="0.6" />
+            <polyline points={buildLine("solarF")} fill="none" stroke="hsl(var(--emerald))" strokeWidth="3" strokeDasharray="10 6" />
+            <polyline points={buildLine("windF")} fill="none" stroke="hsl(var(--emerald))" strokeWidth="3" strokeDasharray="10 6" opacity="0.9" />
           </svg>
         </div>
 

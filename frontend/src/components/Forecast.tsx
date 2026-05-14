@@ -1,6 +1,9 @@
 import React, { useEffect, useState } from "react";
+import { endOfDay, format, parseISO, startOfDay } from "date-fns";
+import { buildSyntheticPlantSeries, predictionErrorPctForIndex, predictionFactorForIndex } from "@/lib/syntheticData";
 
 interface ForecastData {
+  timestamp: string;
   hour: number;
   solar: number;
   wind: number;
@@ -8,53 +11,134 @@ interface ForecastData {
   windF: number;
 }
 
+interface Plant {
+  id: string;
+  type: "solar" | "wind";
+  ac_capacity_mw?: number;
+}
+
+interface GenerationPoint {
+  timestamp: string;
+  actual_mw: number | null;
+  predicted_mw: number | null;
+}
+
 export const Forecast = () => {
   const [data, setData] = useState<ForecastData[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    const aggregateFromSeries = (seriesByPlant: Array<{ type: "solar" | "wind"; series: GenerationPoint[] }>) => {
+      const slotMap = new Map<string, { solar: number; wind: number }>();
+
+      seriesByPlant.forEach(({ type, series }) => {
+        series.forEach((point) => {
+          const ts = parseISO(point.timestamp).toISOString();
+          const value = Number(point.actual_mw ?? point.predicted_mw ?? 0);
+          const current = slotMap.get(ts) ?? { solar: 0, wind: 0 };
+          if (type === "solar") current.solar += value;
+          else current.wind += value;
+          slotMap.set(ts, current);
+        });
+      });
+
+      const timestamps = Array.from(slotMap.keys()).sort(
+        (a, b) => new Date(a).getTime() - new Date(b).getTime()
+      );
+
+      return timestamps.map((timestamp, idx) => {
+        const slot = slotMap.get(timestamp) ?? { solar: 0, wind: 0 };
+        const solarFactor = predictionFactorForIndex(idx);
+        const windFactor = predictionFactorForIndex(idx + 3);
+        return {
+          timestamp,
+          hour: idx,
+          solar: Number(slot.solar.toFixed(2)),
+          wind: Number(slot.wind.toFixed(2)),
+          solarF: Number(Math.max(0, slot.solar * solarFactor).toFixed(2)),
+          windF: Number(Math.max(0, slot.wind * windFactor).toFixed(2)),
+        };
+      });
+    };
+
+    const syntheticFromPlants = (plants: Plant[]) => {
+      const now = new Date();
+      const start = startOfDay(now);
+      const end = endOfDay(now);
+      const seriesByPlant = plants.map((plant) => ({
+        type: plant.type,
+        series: buildSyntheticPlantSeries(
+          plant.ac_capacity_mw ?? 20,
+          plant.type,
+          start,
+          end,
+          15
+        ),
+      }));
+      return aggregateFromSeries(seriesByPlant);
+    };
+
     const fetchForecast = async () => {
       try {
-        const response = await fetch("http://localhost:8080/sldc/generation?limit=24");
-        if (!response.ok) throw new Error("Backend unreachable");
-        const raw = await response.json();
-        
-        // Reverse for chronological order
-        const sorted = raw.reverse();
-        
-        const chartData = sorted.map((entry: any, i: number) => {
-          // Physics-based forecast simulation based on SLDC trend
-          const solarTrend = entry.solar_mw;
-          const windTrend = entry.wind_mw;
-          
-          return {
-            hour: i,
-            solar: solarTrend,
-            wind: windTrend,
-            // Generate future prediction with slight variance for realism
-            solarF: solarTrend * (0.98 + Math.random() * 0.05),
-            windF: windTrend * (0.95 + Math.random() * 0.1),
-          };
-        });
-        setData(chartData);
+        const plantsRes = await fetch("/api/plants");
+        if (!plantsRes.ok) throw new Error("Plants API unavailable");
+        const plantsRaw = await plantsRes.json();
+        if (!Array.isArray(plantsRaw)) throw new Error("Invalid plants payload");
+
+        const plants: Plant[] = plantsRaw
+          .filter((p: any) => p?.id && (p?.type === "solar" || p?.type === "wind"))
+          .map((p: any) => ({
+            id: p.id,
+            type: p.type,
+            ac_capacity_mw: Number(p.ac_capacity_mw ?? (p.capacity_kw ? p.capacity_kw / 1000 : 20)),
+          }));
+
+        const now = new Date();
+        const start = format(startOfDay(now), "yyyy-MM-dd'T'HH:mm:ss");
+        const end = format(endOfDay(now), "yyyy-MM-dd'T'HH:mm:ss");
+
+        const fetched = await Promise.all(
+          plants.map(async (plant) => {
+            try {
+              const res = await fetch(`/api/generation/${plant.id}?start=${start}&end=${end}`);
+              if (!res.ok) throw new Error("Generation API unavailable");
+              const rows = await res.json();
+              if (!Array.isArray(rows) || rows.length === 0) throw new Error("Empty generation");
+              return { type: plant.type, series: rows as GenerationPoint[] };
+            } catch {
+              return {
+                type: plant.type,
+                series: buildSyntheticPlantSeries(
+                  plant.ac_capacity_mw ?? 20,
+                  plant.type,
+                  startOfDay(now),
+                  endOfDay(now),
+                  15
+                ),
+              };
+            }
+          })
+        );
+
+        setData(aggregateFromSeries(fetched));
       } catch (error) {
-        console.warn("Backend unavailable, using mock forecast curves.");
-        const mockData = Array.from({ length: 24 }, (_, i) => {
-          const hour = i;
-          const dayPos = ((hour % 24) - 12) / 6;
-          // Standard solar curve
-          const solar = Math.max(0, Math.exp(-dayPos * dayPos) * 2400);
-          // Fluctuating wind curve
-          const wind = 1200 + Math.sin(hour / 4) * 400 + (Math.random() * 100);
-          return {
-            hour,
-            solar: solar,
-            wind: wind,
-            solarF: solar * (0.95 + Math.random() * 0.1),
-            windF: wind * (0.9 + Math.random() * 0.2)
-          };
-        });
-        setData(mockData);
+        console.warn("Backend unavailable, using aggregated synthetic plant forecast.");
+        const fallbackPlants: Plant[] = [
+          { id: "kpcl_shivanasamudra", type: "solar", ac_capacity_mw: 15 },
+          { id: "kpcl_yalesandra", type: "solar", ac_capacity_mw: 3 },
+          { id: "kpcl_itnal", type: "solar", ac_capacity_mw: 3 },
+          { id: "kpcl_yapaldinni", type: "solar", ac_capacity_mw: 3 },
+          { id: "kspdcl_pavagada", type: "solar", ac_capacity_mw: 2050 },
+          { id: "wind_tuppadahalli", type: "wind", ac_capacity_mw: 56.1 },
+          { id: "wind_bannur", type: "wind", ac_capacity_mw: 78 },
+          { id: "wind_jogmatti", type: "wind", ac_capacity_mw: 14 },
+          { id: "wind_bijapur", type: "wind", ac_capacity_mw: 50 },
+          { id: "wind_gadag", type: "wind", ac_capacity_mw: 302.4 },
+          { id: "wind_mangoli", type: "wind", ac_capacity_mw: 46 },
+          { id: "wind_tata_power", type: "wind", ac_capacity_mw: 50.4 },
+          { id: "wind_clp", type: "wind", ac_capacity_mw: 50 },
+        ];
+        setData(syntheticFromPlants(fallbackPlants));
       } finally {
         setLoading(false);
       }
@@ -120,13 +204,25 @@ const ForecastChart = ({ title, type, data }: { title: string; type: "combined" 
     return `${PAD.l},${H - PAD.b} ${points} ${W - PAD.r},${H - PAD.b}`;
   };
 
-  const buildLine = (isActual: boolean) => {
-    return data.map((d, i) => {
+  const buildSmoothPath = (isActual: boolean) => {
+    const points = data.map((d, i) => {
       const v = isActual ? 
         (type === "solar" ? d.solar : type === "wind" ? d.wind : d.solar + d.wind) :
         (type === "solar" ? d.solarF : type === "wind" ? d.windF : d.solarF + d.windF);
-      return `${xScale(i)},${yScale(v)}`;
-    }).join(" ");
+      return { x: xScale(i), y: yScale(v) };
+    });
+
+    if (points.length === 0) return "";
+    if (points.length === 1) return `M ${points[0].x} ${points[0].y}`;
+
+    let path = `M ${points[0].x} ${points[0].y}`;
+    for (let i = 0; i < points.length - 1; i += 1) {
+      const current = points[i];
+      const next = points[i + 1];
+      const cx = (current.x + next.x) / 2;
+      path += ` C ${cx} ${current.y}, ${cx} ${next.y}, ${next.x} ${next.y}`;
+    }
+    return path;
   };
 
   const accentColor = type === "solar" ? "solar" : type === "wind" ? "wind" : "primary";
@@ -187,8 +283,15 @@ const ForecastChart = ({ title, type, data }: { title: string; type: "combined" 
         ))}
 
         <polygon points={buildArea(true)} fill={`url(#grad-${type})`} />
-        <polyline points={buildLine(true)} fill="none" stroke={`hsl(var(--${accentColor}))`} strokeWidth="2" />
-        <polyline points={buildLine(false)} fill="none" stroke="hsl(var(--emerald))" strokeWidth="1.5" strokeDasharray="4 4" />
+        <path d={buildSmoothPath(true)} fill="none" stroke={`hsl(var(--${accentColor}))`} strokeWidth="2" />
+        <path
+          d={buildSmoothPath(false)}
+          fill="none"
+          stroke="hsl(var(--emerald))"
+          strokeWidth="3.2"
+          strokeDasharray="10 6"
+          opacity="0.98"
+        />
 
         {hoverIdx !== null && (
           <g>
@@ -206,6 +309,9 @@ const ForecastChart = ({ title, type, data }: { title: string; type: "combined" 
             >
               <div className="bg-background/95 backdrop-blur-sm border border-border p-3 shadow-xl rounded-sm">
                 <div className="font-mono text-[9px] text-muted-foreground mb-1">BLOCK {hoverIdx + 1}</div>
+                <div className="font-mono text-[9px] text-muted-foreground mb-1">
+                  {format(parseISO(data[hoverIdx].timestamp), "HH:mm")}
+                </div>
                 <div className="flex justify-between items-center mb-1">
                   <span className="text-[10px] font-mono">Power Generated:</span>
                   <span className={`text-xs font-bold text-${accentColor}`}>{getValues(data[hoverIdx])[0].toFixed(2)} MW</span>
@@ -213,6 +319,9 @@ const ForecastChart = ({ title, type, data }: { title: string; type: "combined" 
                 <div className="flex justify-between items-center">
                   <span className="text-[10px] font-mono">AI Outlook:</span>
                   <span className="text-xs font-bold text-emerald-500">{getValues(data[hoverIdx])[1].toFixed(2)} MW</span>
+                </div>
+                <div className="mt-1 text-[9px] font-mono text-amber-400">
+                  Error band: {(predictionErrorPctForIndex(hoverIdx) * 100).toFixed(0)}%
                 </div>
               </div>
             </foreignObject>

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { AlertCircle, ArrowDown, ArrowUp, Activity } from "lucide-react";
+import { ArrowDown, ArrowUp, Activity } from "lucide-react";
+import { buildSyntheticGridSeries, predictionFactorForIndex } from "@/lib/syntheticData";
 
 interface AnalysisEntry {
   sldc_ts: string;
@@ -16,23 +17,14 @@ export const Analysis = () => {
   useEffect(() => {
     const fetchAnalysis = async () => {
       try {
-        const response = await fetch("http://localhost:8080/sldc/generation?limit=24");
+        const response = await fetch("/api/sldc/generation?limit=24");
         if (!response.ok) throw new Error("Backend unreachable");
         const data = await response.json();
+        if (!Array.isArray(data)) throw new Error("Invalid payload");
         setAnalysisData(data);
       } catch (error) {
-        console.warn("Backend unavailable, generating mock analysis data.");
-        // Mock historical data for 24 blocks (15 mins each)
-        const mockData = Array.from({ length: 24 }, (_, i) => {
-          const time = new Date(Date.now() - i * 15 * 60000);
-          return {
-            sldc_ts: time.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-            solar_mw: parseFloat((Math.random() * 50 + 40).toFixed(2)),
-            wind_mw: parseFloat((Math.random() * 30 + 20).toFixed(2)),
-            total_generation_mw: 0, // Calculated below
-            state_demand_mw: 12000
-          };
-        }).map(d => ({ ...d, total_generation_mw: d.solar_mw + d.wind_mw }));
+        console.warn("Backend unavailable, generating realistic synthetic analysis data.");
+        const mockData = buildSyntheticGridSeries(24);
         setAnalysisData(mockData);
       } finally {
         setLoading(false);
@@ -88,7 +80,10 @@ export const Analysis = () => {
                   <td className="p-4">{entry.wind_mw}</td>
                   <td className="p-4 font-bold">{entry.total_generation_mw} MW</td>
                   <td className="p-4 font-bold text-primary">
-                    {(entry.total_generation_mw * 0.98).toFixed(2)} MW
+                    {(
+                      entry.total_generation_mw *
+                      predictionFactorForIndex(idx)
+                    ).toFixed(2)} MW
                   </td>
                   <td className="p-4">
                     <div className="flex items-center gap-2 text-muted-foreground text-[11px]">

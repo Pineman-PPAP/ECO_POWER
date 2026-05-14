@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Sun, Wind, Activity, TrendingUp } from "lucide-react";
+import { buildSyntheticGridSeries, predictionFactorForIndex } from "@/lib/syntheticData";
 
 interface GridStatus {
   solar_mw: number;
@@ -22,12 +23,12 @@ export const Dashboard = () => {
         setStatus(data);
       } catch (error) {
         console.warn("Backend unavailable, using fallback mock data.");
-        // Fallback mock data
+        const synthetic = buildSyntheticGridSeries(1)[0];
         setStatus({
-          solar_mw: 742.8,
-          wind_mw: 421.5,
-          frequency: 50.02,
-          timestamp: new Date().toLocaleTimeString() + " (Mock)",
+          solar_mw: synthetic.solar_mw,
+          wind_mw: synthetic.wind_mw,
+          frequency: 49.98,
+          timestamp: `${new Date().toLocaleTimeString()} (Synthetic)`,
           is_stale: false
         });
       } finally {
@@ -78,10 +79,14 @@ export const Dashboard = () => {
 
   const Sparkline = ({ data, color }: { data: number[]; color: string }) => {
     const w = 100, h = 28;
-    const max = Math.max(...data), min = Math.min(...data);
-    const pts = data
-      .map((v, i) => `${(i / (data.length - 1)) * w},${h - ((v - min) / (max - min || 1)) * h}`)
-      .join(" ");
+    const predicted = data.map((v, i) => Math.max(0, v * predictionFactorForIndex(i + 2)));
+    const max = Math.max(...data, ...predicted), min = Math.min(...data, ...predicted);
+    const toPts = (series: number[]) =>
+      series
+        .map((v, i) => `${(i / (series.length - 1)) * w},${h - ((v - min) / (max - min || 1)) * h}`)
+        .join(" ");
+    const pts = toPts(data);
+    const predPts = toPts(predicted);
     return (
       <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" className="w-full h-8">
         <defs>
@@ -92,6 +97,15 @@ export const Dashboard = () => {
         </defs>
         <polyline points={`0,${h} ${pts} ${w},${h}`} fill={`url(#g-${color})`} />
         <polyline points={pts} fill="none" stroke={`hsl(var(--${color}))`} strokeWidth="1.25" vectorEffect="non-scaling-stroke" />
+        <polyline
+          points={predPts}
+          fill="none"
+          stroke="hsl(var(--emerald))"
+          strokeWidth="1.8"
+          strokeDasharray="6 4"
+          vectorEffect="non-scaling-stroke"
+          opacity="0.95"
+        />
       </svg>
     );
   };

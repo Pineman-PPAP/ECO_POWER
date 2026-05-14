@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Optional, List
 import pandas as pd
 
@@ -57,24 +57,24 @@ def api_get_generation(
         
     query = db.query(GenerationData).filter(GenerationData.plant_id == plant_id)
     
+    now = datetime.now()
+    
+    # Defaults for Demo/Performance
+    start_dt = now - timedelta(hours=24)
     if start:
         try:
-            # Handle 'Z' suffix and other ISO variations
             start_clean = start.replace('Z', '+00:00')
             start_dt = datetime.fromisoformat(start_clean).replace(tzinfo=None)
-            query = query.filter(GenerationData.timestamp >= start_dt)
-        except ValueError as e:
-            print(f"Error parsing start date: {e}")
-            pass
-            
+        except: pass
+        
+    end_dt = now + timedelta(hours=48)
     if end:
         try:
             end_clean = end.replace('Z', '+00:00')
             end_dt = datetime.fromisoformat(end_clean).replace(tzinfo=None)
-            query = query.filter(GenerationData.timestamp <= end_dt)
-        except ValueError as e:
-            print(f"Error parsing end date: {e}")
-            pass
+        except: pass
+
+    query = query.filter(GenerationData.timestamp >= start_dt, GenerationData.timestamp <= end_dt)
             
     records = query.order_by(GenerationData.timestamp.asc()).all()
     print(f"RETURNED {len(records)} records for {plant_id}")
@@ -82,9 +82,10 @@ def api_get_generation(
     return [
         {
             "timestamp": r.timestamp.isoformat(),
-            "actual_kw": r.actual_kw,
-            "predicted_kw": r.predicted_kw,
-            "zone_label": r.zone_label
+            "actual_mw": r.actual_mw,
+            "predicted_mw": r.predicted_mw,
+            "zone_label": r.zone_label,
+            "reason": r.reason
         }
         for r in records
     ]
@@ -99,13 +100,13 @@ def api_get_live(db: Session = Depends(get_db)):
         # Get latest actual record (not null)
         latest_actual = db.query(GenerationData).filter(
             GenerationData.plant_id == p['id'],
-            GenerationData.actual_kw != None
+            GenerationData.actual_mw != None
         ).order_by(GenerationData.timestamp.desc()).first()
         
         result[p['id']] = {
             "timestamp": latest_actual.timestamp.isoformat() if latest_actual else None,
-            "actual_kw": latest_actual.actual_kw if latest_actual else 0,
-            "predicted_kw": latest_actual.predicted_kw if latest_actual else 0
+            "actual_mw": latest_actual.actual_mw if latest_actual else 0,
+            "predicted_mw": latest_actual.predicted_mw if latest_actual else 0
         }
         
     return result
@@ -120,37 +121,37 @@ def api_get_summary(plant_id: str, db: Session = Depends(get_db)):
         GenerationData.plant_id == plant_id,
         GenerationData.timestamp >= start_of_today,
         GenerationData.timestamp <= now,
-        GenerationData.actual_kw != None
+        GenerationData.actual_mw != None
     ).all()
     
     if not records:
         return {
-            "total_kwh": 0,
+            "total_mwh": 0,
             "avg_accuracy_pct": 0,
-            "peak_kw": 0,
+            "peak_mw": 0,
             "peak_time": None
         }
         
-    total_kwh = sum(r.actual_kw for r in records) * 0.25 # 15 min interval = 0.25 hours
+    total_mwh = sum(r.actual_mw for r in records) * 0.25 # 15 min interval = 0.25 hours
     
     # Calculate accuracy
     errors = []
     for r in records:
-        if r.predicted_kw > 0 or r.actual_kw > 0:
-            err = abs(r.actual_kw - r.predicted_kw)
-            max_val = max(r.actual_kw, r.predicted_kw)
+        if r.predicted_mw > 0 or r.actual_mw > 0:
+            err = abs(r.actual_mw - r.predicted_mw)
+            max_val = max(r.actual_mw, r.predicted_mw)
             if max_val > 0:
                 errors.append(err / max_val)
     
     avg_error = sum(errors) / len(errors) if errors else 0
     accuracy = max(0, (1 - avg_error) * 100)
     
-    peak_record = max(records, key=lambda x: x.actual_kw)
+    peak_record = max(records, key=lambda x: x.actual_mw)
     
     return {
-        "total_kwh": round(total_kwh, 2),
+        "total_mwh": round(total_mwh, 2),
         "avg_accuracy_pct": round(accuracy, 2),
-        "peak_kw": round(peak_record.actual_kw, 2),
+        "peak_mw": round(peak_record.actual_mw, 2),
         "peak_time": peak_record.timestamp.isoformat()
     }
 
